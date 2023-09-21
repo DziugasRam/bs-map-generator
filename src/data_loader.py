@@ -7,6 +7,15 @@ from numba.experimental import jitclass
 import numba.typed
 import numba
 import requests
+import random
+
+
+context_length = 1
+prediction_note_count = context_length * 40
+prediction_note_time_length = context_length / prediction_note_count
+note_count = 10
+note_length = 35
+
 
 data_dir = "E:/bs-map-generator/data/maps"
 
@@ -177,11 +186,28 @@ def load_map(map_dir):
     
     return load_audio(f"{map_dir}/{song_filename}"), diffs
 
-context_length = 1
-prediction_note_count = context_length * 40
-prediction_note_time_length = context_length / prediction_note_count
-note_count = 10
-note_length = 35
+def check_parity_ok(prev_note_segment, curr_note_segment):
+    note_segment = (prev_note_segment[0] + curr_note_segment[0], prev_note_segment[1] + curr_note_segment[1])
+    for color in range(2):
+        last_i = 0
+        for i in range(1, len(note_segment[color])):
+            if note_segment[color][i][0] == 1:
+                j = last_i
+                if note_segment[color][j][0] == 1:
+                    for note_i_iter, note_i in enumerate(note_segment[color][i][1::2]):
+                        if note_i == 1:
+                            note_angle_i = note_segment[color][i][1 + note_i_iter * 2 + 1]
+                        
+                    for note_j_iter, note_j in enumerate(note_segment[color][j][1::2]):
+                        if note_j == 1:
+                            note_angle_j = note_segment[color][j][1 + note_j_iter * 2 + 1]
+                    if note_j_iter == note_i_iter:
+                        if min(abs(note_angle_i - note_angle_j), 1 - abs(note_angle_i - note_angle_j)) < 0.2:
+                            return False
+                    elif min(abs(note_angle_i - note_angle_j), 1 - abs(note_angle_i - note_angle_j)) < 0.1:
+                        return False
+                last_i = i
+    return True
 
 
 def full_load_map(map_folder):
@@ -197,7 +223,6 @@ def full_load_map(map_folder):
         key_type=numba.types.int64,
         value_type=numba.types.int64,
     )
-
     direction_to_angle[0] = 180
     direction_to_angle[1] = 0
     direction_to_angle[2] = 90
@@ -237,7 +262,7 @@ def full_load_map(map_folder):
         
         prev_note_segment = ([[0]*25 for i in range(prediction_note_count)], [[0]*25 for i in range(prediction_note_count)])
         prev_audio_segment = song_data[:, :context_steps, :]
-        for i in range(context_steps, song_data.shape[1] - context_steps, step_size):
+        for i in range(context_steps + random.randint(0, context_steps), song_data.shape[1] - context_steps, step_size):
             curr_time = i * segment_duration
             note_segment = ([[0]*25 for i in range(prediction_note_count)], [[0]*25 for i in range(prediction_note_count)])
             note_count_segment = 0
@@ -285,6 +310,10 @@ def full_load_map(map_folder):
                         
                         loc_note_iterator += 1
             
+            parity_check = check_parity_ok(prev_note_segment, note_segment) if prev_note_segment is not None else True
+                        
+            skip_segment = skip_segment or not parity_check
+
             if skip_segment:
                 prev_audio_segment = None
                 prev_note_segment = None
@@ -300,7 +329,7 @@ def full_load_map(map_folder):
             # sum_note_pos = np.max(np.sum(np.where(np.array(note_segment)[:, 1:] > 0.9, 1, 0), axis=0) + np.sum(np.where(np.array(prev_note_segment)[:, 1:] > 0.9, 1, 0), axis=0))
             
             # filter out very dense maps for now
-            if timing_count_segment > 2 and note_count_segment < 16 and timing_count_segment < 15:
+            if timing_count_segment > 2 and note_count_segment < 20 and timing_count_segment < 15:
                 x_context_prev_audio.append(prev_audio_segment)
                 x_context_prev_notes.append(prev_note_segment)
                 x_context_audio.append(audio_segment)
@@ -319,4 +348,5 @@ def full_load_map(map_folder):
         
         # results.append((np.array(x_precontext_audio), np.array(x_precontext_notes), np.array(x_postcontext_audio), np.array(y_postcontext_notes)))
         results.append((np.array(x_context_prev_audio, dtype=np.float32), np.array(x_context_prev_notes, dtype=np.float32), np.array(x_context_audio, dtype=np.float32), np.array(y_context_notes, dtype=np.float32), np.array(z_timing_counts, dtype=np.int32), np.array(z_note_counts, dtype=np.float32), np.array(z_note_pos_counts, dtype=np.float32), np.array(z_acc_prediction, dtype=np.float32), np.array(z_speed_prediction, dtype=np.float32)))
+    
     return results

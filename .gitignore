@@ -2,3 +2,6 @@ data/*
 src/__pycache__/*
 src/validation/*
 src/somethingsomething/*
+src/dataset_cache/*
+src/saved_models/*
+**/__pycache__/**
