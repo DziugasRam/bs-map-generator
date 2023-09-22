@@ -16,7 +16,6 @@ def create_placement_selection_model():
     l_prev_notes = tf.keras.layers.Reshape((40*2, -1))(l_prev_notes)
     
     l = tf.keras.layers.Concatenate(axis=2)([input_features, l_prev_notes])
-    l = tf.keras.layers.LSTM(256, return_sequences=True)(l)
     l = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True))(l)
     l = tf.keras.layers.LSTM(128, return_sequences=True)(l)
     

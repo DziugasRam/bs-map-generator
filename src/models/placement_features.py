@@ -2,8 +2,8 @@ import tensorflow as tf
 from models.audio import create_audio_model_stereo
 
 def _create_placement_selection_features_model():
-    input_audio = tf.keras.Input(shape=(40, 64), dtype="float32")
-    input_timing_selection_style = tf.keras.Input(shape=(256,), dtype="float32")
+    input_audio = tf.keras.Input(shape=(40, 128), dtype="float32")
+    input_timing_selection_style = tf.keras.Input(shape=(64,), dtype="float32")
     input_acc_prediction = tf.keras.Input(shape=(1, ), dtype="float32")
     input_speed_prediction = tf.keras.Input(shape=(1, ), dtype="float32")
 
@@ -11,24 +11,22 @@ def _create_placement_selection_features_model():
     l_acc_prediction = tf.keras.layers.RepeatVector(40)(input_acc_prediction)
     l_speed_prediction = tf.keras.layers.RepeatVector(40)(input_speed_prediction)
     l_prediction = tf.keras.layers.Concatenate(axis=2)([input_audio, l_timing_selection_style, l_acc_prediction, l_speed_prediction])
-    l_prediction = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(256, return_sequences=True))(l_prediction)
-    l_prediction = tf.keras.layers.LSTM(256, return_sequences=True)(l_prediction)
-    l_prediction = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(128, activation="tanh"))(l_prediction)
+    l_prediction = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True))(l_prediction)
+    l_prediction = tf.keras.layers.LSTM(128, return_sequences=True)(l_prediction)
     
     return tf.keras.Model([input_audio, input_timing_selection_style, input_acc_prediction, input_speed_prediction], [l_prediction])
 
 def _create_timing_selection_style_model():
-    input_audio = tf.keras.Input(shape=(40, 64), dtype="float32")
+    input_audio = tf.keras.Input(shape=(40, 128), dtype="float32")
     input_notes = tf.keras.Input(shape=(40, 50), dtype="float32")
     
     l = tf.keras.layers.Concatenate(axis=2)([input_audio, input_notes])
-    l = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True))(l)
-    l = tf.keras.layers.LSTM(256, return_sequences=True)(l)
-    l_timing_selection_style = tf.keras.layers.LSTM(256)(l)
+    l = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True))(l)
+    l = tf.keras.layers.LSTM(64)(l)
     
-    return tf.keras.Model([input_audio, input_notes], [l_timing_selection_style])
-    
-    
+    return tf.keras.Model([input_audio, input_notes], [l])
+
+
 def create_placement_features_model():
     audio_model = create_audio_model_stereo()
     placement_selection_features_model = _create_placement_selection_features_model()
